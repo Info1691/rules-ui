@@ -4,24 +4,23 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Rules Repository</title>
-  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header>
-    <img src="logo.png" alt="Logo" id="logo"/>
+    <img src="logo.png" alt="Logo" class="logo" />
     <h1>Rules Repository</h1>
   </header>
-
-  <main>
+  <div class="container">
     <aside>
-      <input type="text" id="searchBar" placeholder="Search rules by title, jurisdiction..."/>
-      <ul id="ruleList"></ul>
+      <input type="text" id="search" placeholder="Search rules by title, jurisdiction..."/>
+      <div class="rules-list"></div>
     </aside>
-    <section id="ruleDetails">
-      <p>Select a rule to view details</p>
-    </section>
-  </main>
-
+    <main id="rule-display">
+      <p>Select a rule to view its content.</p>
+    </main>
+  </div>
   <script src="main.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </body>
 </html>
