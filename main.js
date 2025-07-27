@@ -1,51 +1,54 @@
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', () => {
   fetch('rules.json')
     .then(response => response.json())
     .then(data => {
-      const rulesList = document.querySelector('.rules-list');
-      const ruleDisplay = document.getElementById('rule-display');
+      const rulesList = document.getElementById('rulesList');
+      const ruleTitle = document.getElementById('ruleTitle');
+      const ruleJurisdiction = document.getElementById('ruleJurisdiction');
+      const ruleReference = document.getElementById('ruleReference');
+      const ruleSource = document.getElementById('ruleSource');
+      const ruleContent = document.getElementById('ruleContent');
+      const searchInput = document.getElementById('searchInput');
 
-      data.forEach((rule, index) => {
-        const ruleItem = document.createElement('div');
-        ruleItem.className = 'rule-item';
-        ruleItem.textContent = rule.title;
+      let rules = data;
 
-        ruleItem.addEventListener('click', () => {
-          ruleDisplay.innerHTML = `
-            <h2>${rule.title}</h2>
-            <p><strong>Jurisdiction:</strong> ${rule.jurisdiction}</p>
-            <p><strong>Reference:</strong> ${rule.reference}</p>
-            <p><strong>Source:</strong> <a href="${rule.reference_url}" target="_blank">${rule.reference_url}</a></p>
-            <div class="button-bar">
-              <button onclick="printRule()">🖨️ Print</button>
-              <button onclick="exportPDF()">📄 Export to PDF</button>
-            </div>
-            <pre id="rule-content">Loading...</pre>
-          `;
+      function displayRule(rule) {
+        ruleTitle.textContent = rule.title;
+        ruleJurisdiction.textContent = rule.jurisdiction;
+        ruleReference.textContent = rule.reference;
+        ruleSource.textContent = rule.reference_url;
+        ruleSource.href = rule.reference_url;
 
-          fetch(rule.source)
-            .then(response => response.text())
-            .then(text => {
-              document.getElementById('rule-content').textContent = text;
-            });
+        fetch(rule.source)
+          .then(res => res.text())
+          .then(text => {
+            ruleContent.textContent = text;
+          });
+      }
+
+      function populateList(filteredRules) {
+        rulesList.innerHTML = '';
+        filteredRules.forEach(rule => {
+          const li = document.createElement('li');
+          li.textContent = rule.title;
+          li.onclick = () => displayRule(rule);
+          rulesList.appendChild(li);
         });
+      }
 
-        rulesList.appendChild(ruleItem);
+      searchInput.addEventListener('input', () => {
+        const query = searchInput.value.toLowerCase();
+        const filtered = rules.filter(rule =>
+          rule.title.toLowerCase().includes(query) ||
+          rule.jurisdiction.toLowerCase().includes(query) ||
+          rule.reference.toLowerCase().includes(query)
+        );
+        populateList(filtered);
       });
+
+      populateList(rules);
+      if (rules.length > 0) {
+        displayRule(rules[0]);
+      }
     });
 });
-
-function printRule() {
-  const content = document.getElementById('rule-display').innerHTML;
-  const win = window.open('', '', 'height=800,width=800');
-  win.document.write('<html><head><title>Print Rule</title></head><body>');
-  win.document.write(content);
-  win.document.write('</body></html>');
-  win.document.close();
-  win.print();
-}
-
-function exportPDF() {
-  const element = document.getElementById('rule-display');
-  html2pdf().from(element).save('Rule-Export.pdf');
-}
