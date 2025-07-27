@@ -1,77 +1,84 @@
 body {
-  font-family: Arial, sans-serif;
   margin: 0;
-  padding: 0;
+  font-family: Arial, sans-serif;
+  background: #f5f5f5;
 }
 
 header {
-  display: flex;
-  align-items: center;
   background-color: #003366;
   color: white;
   padding: 10px 20px;
+  display: flex;
+  align-items: center;
 }
 
-#logo {
+.logo {
   height: 40px;
   margin-right: 15px;
-  background-color: white;
-  padding: 2px;
 }
 
 h1 {
-  font-size: 1.5em;
-  margin: 0;
+  font-size: 1.8em;
 }
 
-main {
+.container {
   display: flex;
   height: calc(100vh - 60px);
 }
 
 aside {
-  width: 250px;
-  background: #f4f4f4;
-  border-right: 1px solid #ccc;
-  padding: 10px;
-  box-sizing: border-box;
-}
-
-#searchBar {
-  width: 100%;
-  padding: 8px;
-  margin-bottom: 10px;
-  box-sizing: border-box;
-}
-
-#ruleList {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-#ruleList li {
-  padding: 8px;
-  cursor: pointer;
-  border-bottom: 1px solid #ccc;
-}
-
-#ruleList li:hover {
-  background-color: #e0e0e0;
-}
-
-section#ruleDetails {
-  flex: 1;
+  width: 25%;
+  background-color: #ffffff;
   padding: 20px;
-  overflow-y: scroll;
-  box-sizing: border-box;
+  border-right: 1px solid #ccc;
+  overflow-y: auto;
+}
+
+.rules-list {
+  margin-top: 10px;
+}
+
+.rule-item {
+  padding: 10px;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+}
+
+.rule-item:hover {
+  background-color: #f0f0f0;
+}
+
+main {
+  flex-grow: 1;
+  padding: 20px;
+  overflow-y: auto;
+  background: #fff;
 }
 
 pre {
-  background-color: #f8f8f8;
-  padding: 10px;
-  overflow-x: auto;
   white-space: pre-wrap;
-  word-wrap: break-word;
+  background: #f9f9f9;
+  padding: 10px;
   border: 1px solid #ccc;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+#search {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 10px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+}
+
+.button-bar {
+  margin: 15px 0;
+}
+
+.button-bar button {
+  margin-right: 10px;
+  padding: 8px 12px;
+  font-size: 14px;
+  cursor: pointer;
 }
