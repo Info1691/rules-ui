@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-  fetch('rules.json')
+  fetch('./' + rule.source)
     .then(response => response.json())
     .then(data => {
       const rulesList = document.getElementById('rulesList');
