@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-  fetch('data/rules/rules.json')
+  fetch('rules.json')
     .then(response => response.json())
     .then(data => {
       const rulesList = document.getElementById('rulesList');
@@ -19,14 +19,17 @@ document.addEventListener('DOMContentLoaded', () => {
         ruleSource.textContent = rule.source;
         ruleSource.href = rule.reference_url;
 
+        // Fetch and display the rule content from the .txt file
         fetch(rule.source)
-          .then(res => res.text())
+          .then(res => {
+            if (!res.ok) throw new Error('Text file not found');
+            return res.text();
+          })
           .then(text => {
             ruleContent.textContent = text;
           })
-          .catch(error => {
-            ruleContent.textContent = 'Error loading rule content.';
-            console.error('Rule content load failed:', error);
+          .catch(err => {
+            ruleContent.textContent = '⚠️ Error loading rule text.';
           });
       }
 
@@ -55,7 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
         displayRule(rules[0]);
       }
     })
-    .catch(error => {
-      console.error('Failed to load rules.json:', error);
+    .catch(err => {
+      console.error('Error loading rules.json:', err);
     });
 });
