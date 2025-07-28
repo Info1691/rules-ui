@@ -1,73 +1,69 @@
 body {
-  margin: 0;
   font-family: Arial, sans-serif;
-  background-color: #f4f4f4;
+  margin: 0;
+  background-color: #f9f9f9;
 }
 
 header {
-  background-color: #003366;
+  background-color: #014f86;
   color: white;
-  padding: 10px 20px;
+  padding: 1em;
   display: flex;
   align-items: center;
 }
 
-#logo {
-  height: 50px;
-  margin-right: 15px;
+header img {
+  height: 40px;
+  margin-right: 1em;
   background-color: white;
-}
-
-h1 {
-  margin: 0;
+  padding: 4px;
+  border-radius: 4px;
 }
 
 .container {
   display: flex;
-  height: calc(100vh - 70px);
+  padding: 1em;
 }
 
 aside {
-  width: 300px;
-  background: #ffffff;
-  padding: 10px;
-  border-right: 1px solid #ccc;
-  overflow-y: auto;
+  width: 30%;
+  padding-right: 1em;
+  border-right: 2px solid #ccc;
 }
 
-aside input {
+#searchInput {
   width: 100%;
-  padding: 8px;
-  margin-bottom: 10px;
+  padding: 0.5em;
+  margin-bottom: 1em;
+  font-size: 1em;
 }
 
 #rulesList {
   list-style: none;
   padding: 0;
+  max-height: 80vh;
+  overflow-y: auto;
 }
 
 #rulesList li {
-  margin-bottom: 8px;
+  padding: 0.5em;
   cursor: pointer;
-  color: #0066cc;
+  border-bottom: 1px solid #ddd;
 }
 
 #rulesList li:hover {
-  text-decoration: underline;
+  background-color: #f0f0f0;
 }
 
 main {
-  flex: 1;
-  padding: 20px;
-  overflow-y: auto;
-  background: white;
-  color: black;
+  width: 70%;
+  padding-left: 1em;
 }
 
 pre {
-  background: white;
-  padding: 10px;
+  background-color: #eee;
+  padding: 1em;
   white-space: pre-wrap;
   word-wrap: break-word;
-  font-family: monospace;
+  border-radius: 5px;
 }
