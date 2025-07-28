@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-  fetch('./' + rule.source)
+  fetch('data/rules/rules.json')
     .then(response => response.json())
     .then(data => {
       const rulesList = document.getElementById('rulesList');
@@ -16,13 +16,17 @@ document.addEventListener('DOMContentLoaded', () => {
         ruleTitle.textContent = rule.title;
         ruleJurisdiction.textContent = rule.jurisdiction;
         ruleReference.textContent = rule.reference;
-        ruleSource.textContent = rule.reference_url;
+        ruleSource.textContent = rule.source;
         ruleSource.href = rule.reference_url;
 
         fetch(rule.source)
           .then(res => res.text())
           .then(text => {
             ruleContent.textContent = text;
+          })
+          .catch(error => {
+            ruleContent.textContent = 'Error loading rule content.';
+            console.error('Rule content load failed:', error);
           });
       }
 
@@ -50,5 +54,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (rules.length > 0) {
         displayRule(rules[0]);
       }
+    })
+    .catch(error => {
+      console.error('Failed to load rules.json:', error);
     });
 });
