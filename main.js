@@ -1,48 +1,40 @@
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", function () {
+  const rulesList = document.querySelector("ul#rules-list");
+  const ruleDetails = document.querySelector("#rule-details");
+  const rulesSource = document.querySelector("#rules-source");
+  const rulesText = document.querySelector("#rules-text");
+
   fetch("rules.json")
     .then(response => response.json())
-    .then(data => loadRules(data));
-});
-
-function loadRules(rules) {
-  const list = document.querySelector("#ruleList");
-  const details = document.querySelector("#ruleDetails");
-  const searchInput = document.querySelector("#searchInput");
-
-  rules.forEach(rule => {
-    const li = document.createElement("li");
-    li.textContent = rule.title;
-    li.addEventListener("click", () => {
-      // Show rule details
-      details.innerHTML = `
-        <h2>${rule.title}</h2>
-        <p><strong>Jurisdiction:</strong> ${rule.jurisdiction}</p>
-        <p><strong>Reference:</strong> ${rule.reference}</p>
-        <p><strong>Source:</strong> <a href="${rule.source}" target="_blank">${rule.source}</a></p>
-        <pre id="ruleText">Loading rule text...</pre>
-      `;
-
-      // Fetch and display the rule text from source
-      fetch(rule.source)
-        .then(response => response.text())
-        .then(text => {
-          document.querySelector("#ruleText").textContent = text;
-        })
-        .catch(error => {
-          document.querySelector("#ruleText").textContent = "⚠️ Error loading rule text.";
-          console.error("Error loading rule text:", error);
-        });
+    .then(rules => {
+      rules.forEach((rule, index) => {
+        const li = document.createElement("li");
+        li.textContent = rule.title;
+        li.addEventListener("click", () => loadRule(rule));
+        rulesList.appendChild(li);
+      });
     });
-    list.appendChild(li);
-  });
 
-  // Filter logic
-  searchInput.addEventListener("input", () => {
-    const filter = searchInput.value.toLowerCase();
-    const items = list.getElementsByTagName("li");
-    for (let item of items) {
-      const text = item.textContent.toLowerCase();
-      item.style.display = text.includes(filter) ? "" : "none";
-    }
-  });
-}
+  function loadRule(rule) {
+    document.querySelector("#rule-title").textContent = rule.title;
+    document.querySelector("#rule-jurisdiction").textContent = rule.jurisdiction;
+    document.querySelector("#rule-reference").textContent = rule.reference;
+
+    const sourceLink = document.querySelector("#rule-source-link");
+    sourceLink.href = rule.source;
+    sourceLink.textContent = rule.source;
+
+    // Load the actual rule text content
+    fetch(rule.source)
+      .then(response => {
+        if (!response.ok) throw new Error("Text fetch failed");
+        return response.text();
+      })
+      .then(text => {
+        rulesText.textContent = text;
+      })
+      .catch(error => {
+        rulesText.textContent = "⚠️ Error loading rule text.";
+      });
+  }
+});
