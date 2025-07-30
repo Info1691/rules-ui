@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
   fetch('rules.json')
     .then(response => response.json())
     .then(data => {
-      const rulesList = document.getElementById('rulesList');
+      const rulesList = document.getElementById('ruleList');
       const ruleTitle = document.getElementById('ruleTitle');
       const ruleJurisdiction = document.getElementById('ruleJurisdiction');
       const ruleReference = document.getElementById('ruleReference');
@@ -19,17 +19,21 @@ document.addEventListener('DOMContentLoaded', () => {
         ruleSource.textContent = rule.source;
         ruleSource.href = rule.reference_url;
 
-        // Fetch and display the rule content from the .txt file
+        console.log("📄 Fetching file from:", rule.source);
+
         fetch(rule.source)
           .then(res => {
-            if (!res.ok) throw new Error('Text file not found');
+            if (!res.ok) {
+              throw new Error(`HTTP error! Status: ${res.status}`);
+            }
             return res.text();
           })
           .then(text => {
             ruleContent.textContent = text;
           })
           .catch(err => {
-            ruleContent.textContent = '⚠️ Error loading rule text.';
+            ruleContent.textContent = `⚠️ Error loading rule text: ${err.message}`;
+            console.error("❌ Fetch error:", err);
           });
       }
 
@@ -38,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
         filteredRules.forEach(rule => {
           const li = document.createElement('li');
           li.textContent = rule.title;
-          li.onclick = () => displayRule(rule);
+          li.addEventListener('click', () => displayRule(rule));
           rulesList.appendChild(li);
         });
       }
@@ -47,18 +51,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const query = searchInput.value.toLowerCase();
         const filtered = rules.filter(rule =>
           rule.title.toLowerCase().includes(query) ||
-          rule.jurisdiction.toLowerCase().includes(query) ||
-          rule.reference.toLowerCase().includes(query)
+          rule.jurisdiction.toLowerCase().includes(query)
         );
         populateList(filtered);
       });
 
       populateList(rules);
-      if (rules.length > 0) {
-        displayRule(rules[0]);
-      }
     })
-    .catch(err => {
-      console.error('Error loading rules.json:', err);
+    .catch(error => {
+      console.error('Failed to load rules.json:', error);
     });
 });
