@@ -1,11 +1,10 @@
 [
   {
-    "title": "JFSC Code of Practice for Trustees",
-    "jurisdiction": "jersey",
-    "reference": "jfsc-code-2021",
-    "source": "data/rules/jersey/JFSC-Code-Of-Practice.txt",
-    "reference_url": "data/rules/jersey/JFSC-Code-Of-Practice.txt"
-  },
+  "title": "JFSC Code of Practice for Trustees",
+  "jurisdiction": "jersey",
+  "reference": "jfsc-code-2021",
+  "source": "data/rules/jersey/JFSC-Code-Of-Practise.txt"
+},
   {
     "title": "SRA Code of Conduct 2019",
     "jurisdiction": "uk",
