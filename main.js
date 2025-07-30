@@ -1,64 +1,48 @@
-document.addEventListener('DOMContentLoaded', () => {
-  fetch('rules.json')
+document.addEventListener("DOMContentLoaded", () => {
+  fetch("rules.json")
     .then(response => response.json())
-    .then(data => {
-      const rulesList = document.getElementById('ruleList');
-      const ruleTitle = document.getElementById('ruleTitle');
-      const ruleJurisdiction = document.getElementById('ruleJurisdiction');
-      const ruleReference = document.getElementById('ruleReference');
-      const ruleSource = document.getElementById('ruleSource');
-      const ruleContent = document.getElementById('ruleContent');
-      const searchInput = document.getElementById('searchInput');
-
-      let rules = data;
-
-      function displayRule(rule) {
-        ruleTitle.textContent = rule.title;
-        ruleJurisdiction.textContent = rule.jurisdiction;
-        ruleReference.textContent = rule.reference;
-        ruleSource.textContent = rule.source;
-        ruleSource.href = rule.reference_url;
-
-        console.log("📄 Fetching file from:", rule.source);
-
-        fetch(rule.source)
-          .then(res => {
-            if (!res.ok) {
-              throw new Error(`HTTP error! Status: ${res.status}`);
-            }
-            return res.text();
-          })
-          .then(text => {
-            ruleContent.textContent = text;
-          })
-          .catch(err => {
-            ruleContent.textContent = `⚠️ Error loading rule text: ${err.message}`;
-            console.error("❌ Fetch error:", err);
-          });
-      }
-
-      function populateList(filteredRules) {
-        rulesList.innerHTML = '';
-        filteredRules.forEach(rule => {
-          const li = document.createElement('li');
-          li.textContent = rule.title;
-          li.addEventListener('click', () => displayRule(rule));
-          rulesList.appendChild(li);
-        });
-      }
-
-      searchInput.addEventListener('input', () => {
-        const query = searchInput.value.toLowerCase();
-        const filtered = rules.filter(rule =>
-          rule.title.toLowerCase().includes(query) ||
-          rule.jurisdiction.toLowerCase().includes(query)
-        );
-        populateList(filtered);
-      });
-
-      populateList(rules);
-    })
-    .catch(error => {
-      console.error('Failed to load rules.json:', error);
-    });
+    .then(data => loadRules(data));
 });
+
+function loadRules(rules) {
+  const list = document.querySelector("#ruleList");
+  const details = document.querySelector("#ruleDetails");
+  const searchInput = document.querySelector("#searchInput");
+
+  rules.forEach(rule => {
+    const li = document.createElement("li");
+    li.textContent = rule.title;
+    li.addEventListener("click", () => {
+      // Show rule details
+      details.innerHTML = `
+        <h2>${rule.title}</h2>
+        <p><strong>Jurisdiction:</strong> ${rule.jurisdiction}</p>
+        <p><strong>Reference:</strong> ${rule.reference}</p>
+        <p><strong>Source:</strong> <a href="${rule.source}" target="_blank">${rule.source}</a></p>
+        <pre id="ruleText">Loading rule text...</pre>
+      `;
+
+      // Fetch and display the rule text from source
+      fetch(rule.source)
+        .then(response => response.text())
+        .then(text => {
+          document.querySelector("#ruleText").textContent = text;
+        })
+        .catch(error => {
+          document.querySelector("#ruleText").textContent = "⚠️ Error loading rule text.";
+          console.error("Error loading rule text:", error);
+        });
+    });
+    list.appendChild(li);
+  });
+
+  // Filter logic
+  searchInput.addEventListener("input", () => {
+    const filter = searchInput.value.toLowerCase();
+    const items = list.getElementsByTagName("li");
+    for (let item of items) {
+      const text = item.textContent.toLowerCase();
+      item.style.display = text.includes(filter) ? "" : "none";
+    }
+  });
+}
