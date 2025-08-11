@@ -1,5 +1,6 @@
 [
   {
+    "id": "jfsc-code-of-practice",
     "title": "JFSC Code of Practice for Trustees",
     "jurisdiction": "jersey",
     "reference": "jfsc-code-2021",
@@ -7,18 +8,19 @@
     "reference_url": "data/rules/jersey/JFSC-Code-Of-Practise.txt"
   },
   {
+    "id": "sra-code-2019",
     "title": "SRA Code of Conduct 2019",
     "jurisdiction": "uk",
     "reference": "sra-code-2019",
     "source": "data/rules/uk/sra-code.txt",
     "reference_url": "data/rules/uk/sra-code.txt"
+  },
+  {
+    "id": "icaew-code-ethics",
+    "title": "ICAEW Code of Ethics",
+    "jurisdiction": "uk",
+    "reference": "icaew-code-ethics",
+    "source": "data/rules/uk/icaew-code.txt",
+    "reference_url": "data/rules/uk/icaew-code.txt"
   }
-{
-  "id": "icaew-code-ethics",
-  "title": "ICAEW Code of Ethics",
-  "jurisdiction": "uk",
-  "reference": "icaew-code-ethics",
-  "source": "data/rules/uk/icaew-code.txt",
-  "reference_url": "data/rules/uk/icaew-code.txt"
-}
 ]
