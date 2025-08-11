@@ -18,7 +18,7 @@
   "title": "ICAEW Code of Ethics",
   "jurisdiction": "uk",
   "reference": "icaew-code-ethics",
-  "source": "icaew.com",
+  "source": "data/rules/uk/icaew-code.txt",
   "reference_url": "data/rules/uk/icaew-code.txt"
 }
 ]
