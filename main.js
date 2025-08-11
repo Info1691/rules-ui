@@ -1,132 +1,170 @@
-/* Rules Repository — loads rules.json and displays referenced text */
+// Full, robust loader for Rules Repository.
+// Expects JSON at data/rules.json and rule text files at reference_url paths.
 
-const PATHS = {
-  RULES_JSON: 'rules.json' // rules.json sits next to this file per your repo
-};
+const PATHS = { JSON: 'data/rules.json' };
 
+const $ = (id) => document.getElementById(id);
 const els = {
-  search: document.getElementById('searchBox'),
-  list: document.getElementById('rulesList'),
-  ruleTitle: document.getElementById('ruleTitle'),
-  jurisdiction: document.getElementById('jurisdiction'),
-  reference: document.getElementById('reference'),
-  sourceLink: document.getElementById('sourceLink'),
-  ruleText: document.getElementById('ruleText')
+  list: $('ruleList'),
+  search: $('searchBox'),
+  text: $('ruleText'),
+  jur: $('jurisdiction'),
+  ref: $('reference'),
+  src: $('source'),
+  printBtn: $('printBtn'),
+  exportBtn: $('exportBtn'),
+  status: $('status')
 };
 
-let allRules = [];
-let currentIndex = -1;
+let ALL = [];         // full array from rules.json
+let FILTERED = [];    // filtered by search
+let ACTIVE_INDEX = -1;
 
-// -------- Fetch helpers --------
+// ---------- Fetch helpers ----------
 async function fetchJSON(path) {
   const res = await fetch(path, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`Failed to fetch ${path}: ${res.status} ${res.statusText}`);
-  return res.json();
-}
-async function fetchText(path) {
-  const res = await fetch(path, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`Failed to fetch ${path}: ${res.status} ${res.statusText}`);
-  return res.text();
+  if (!res.ok) throw new Error(`${path} → ${res.status} ${res.statusText}`);
+  const txt = await res.text();
+
+  // Guard: users sometimes get 404 HTML from Pages
+  if (/<!doctype html/i.test(txt) && /404|not found|page not found/i.test(txt)) {
+    throw new Error(`${path} → Not found (ensure the file is at data/rules.json)`);
+  }
+  try { return JSON.parse(txt); }
+  catch (e) { throw new Error(`rules.json parse error: ${e.message}`); }
 }
 
-// -------- Rendering --------
-function renderList(rules, activeIdx = -1) {
-  els.list.innerHTML = '';
-  if (!rules.length) {
-    els.list.innerHTML = '<li><em>No rules match your search.</em></li>';
-    return;
+async function fetchTextStrict(path) {
+  const res = await fetch(path, { cache: 'no-store' });
+  const body = await res.text();
+  if (!res.ok) throw new Error(`${path} → ${res.status} ${res.statusText}`);
+  if (/<!doctype html/i.test(body) && /404|not found/i.test(body)) {
+    throw new Error(`${path} → 404 (file missing)`);
   }
-  rules.forEach((r, i) => {
+  return body;
+}
+
+// ---------- Rendering ----------
+function renderList(items, activeIdx = 0) {
+  els.list.innerHTML = '';
+  items.forEach((r, i) => {
     const li = document.createElement('li');
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = i === activeIdx ? 'active' : '';
-    btn.innerHTML = `<strong>${r.title || '(untitled)'}</strong><br/><small>${r.jurisdiction || ''}</small>`;
-    btn.addEventListener('click', () => selectRuleById(r.__id));
+    btn.className = 'rule-btn' + (i === activeIdx ? ' active' : '');
+    btn.textContent = `${r.title || 'Untitled'} — ${r.jurisdiction || ''}`;
+    btn.addEventListener('click', () => selectRule(i));
     li.appendChild(btn);
     els.list.appendChild(li);
   });
 }
 
 function updateMeta(rule) {
-  els.ruleTitle.textContent = rule.title || '(untitled)';
-  els.jurisdiction.textContent = rule.jurisdiction || '—';
-  els.reference.textContent = rule.reference || '—';
-
-  // Prefer reference_url (your repo uses this), fallback to source
-  const href = rule.reference_url || rule.source || '#';
-  els.sourceLink.textContent = href !== '#' ? href : '—';
-  els.sourceLink.href = href !== '#' ? href : '#';
+  els.jur.textContent = rule?.jurisdiction || '—';
+  els.ref.textContent = rule?.reference || '—';
+  els.src.textContent = rule?.source || '—';
 }
 
-// -------- Selection / loading text --------
-async function selectRuleById(id) {
-  const idx = allRules.findIndex(r => r.__id === id);
-  if (idx === -1) return;
+// ---------- Selection ----------
+async function selectRule(i) {
+  ACTIVE_INDEX = i;
+  const rule = FILTERED[i];
+  if (!rule) return;
 
-  currentIndex = idx;
-  const rule = allRules[idx];
+  // highlight active
+  [...document.querySelectorAll('.rule-btn')].forEach((b, idx) => {
+    b.classList.toggle('active', idx === i);
+  });
+
   updateMeta(rule);
+  els.text.textContent = 'Loading…';
+  els.status.textContent = '';
 
-  els.ruleText.textContent = 'Loading rule text…';
-
-  // Choose the path to load text from
-  const textPath = rule.reference_url || rule.source;
-  if (!textPath) {
-    els.ruleText.textContent = 'No reference_url or source provided for this rule.';
+  const url = rule.reference_url || rule.source;
+  if (!url) {
+    els.text.textContent = 'This rule has no reference_url.';
     return;
   }
 
   try {
-    const txt = await fetchText(textPath);
-    els.ruleText.textContent = txt || '(empty file)';
+    const t = await fetchTextStrict(url);
+    els.text.textContent = t || '(empty file)';
+    els.status.textContent = `Loaded: ${url}`;
   } catch (e) {
-    els.ruleText.textContent = `Error loading rule text from "${textPath}": ${e.message}`;
+    els.text.textContent = `Failed to load rule text.\n${e.message}`;
   }
-
-  // Re-render list with active highlighting
-  renderList(allRules, currentIndex);
 }
 
-// -------- Search --------
+// ---------- Search ----------
 function applySearch() {
-  const q = (els.search.value || '').toLowerCase().trim();
-  const filtered = !q ? allRules : allRules.filter(r => {
-    const hay = `${r.title || ''} ${r.jurisdiction || ''} ${r.reference || ''}`.toLowerCase();
-    return hay.includes(q);
-  });
-  renderList(filtered, -1);
+  const q = (els.search.value || '').trim().toLowerCase();
+  if (!q) {
+    FILTERED = [...ALL];
+  } else {
+    FILTERED = ALL.filter(r => {
+      const hay = [
+        r.title, r.jurisdiction, r.reference, r.source
+      ].map(x => (x || '').toLowerCase()).join(' ');
+      return hay.includes(q);
+    });
+  }
+  renderList(FILTERED, 0);
+  if (FILTERED.length) selectRule(0);
+  else {
+    els.text.textContent = 'No matches.';
+    els.jur.textContent = '—';
+    els.ref.textContent = '—';
+    els.src.textContent = '—';
+  }
 }
 
-// -------- Init --------
+// ---------- Actions ----------
+function exportToTxt() {
+  const active = FILTERED[ACTIVE_INDEX];
+  const content = els.text.textContent || '';
+  const nameSafe = (s) => (s || 'rule').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const fn = `${nameSafe(active?.reference || active?.title)}.txt`;
+  const blob = new Blob([content], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), { href: url, download: fn });
+  document.body.appendChild(a); a.click(); URL.revokeObjectURL(url); a.remove();
+}
+
+// ---------- Init ----------
 async function init() {
   try {
-    const data = await fetchJSON(PATHS.RULES_JSON);
+    const data = await fetchJSON(PATHS.JSON);
 
-    // Accept rules.json as array or { rules: [...] }
-    const rules = Array.isArray(data) ? data : (Array.isArray(data?.rules) ? data.rules : []);
-    if (!rules.length) throw new Error('rules.json must be an array or { "rules": [ ... ] }');
+    // Expect array of objects; coerce from {rules:[...]} if needed
+    const arr = Array.isArray(data) ? data : (Array.isArray(data?.rules) ? data.rules : null);
+    if (!arr) throw new Error('rules.json must be an array or { "rules": [...] }');
 
-    // Normalize and give each rule a stable id
-    allRules = rules.map((r, i) => ({
-      __id: r.id || `${(r.title || 'rule').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${i}`,
+    // Light validation + normalization
+    ALL = arr.map(r => ({
+      id: r.id || '',
       title: r.title || '',
       jurisdiction: r.jurisdiction || '',
       reference: r.reference || '',
-      reference_url: r.reference_url || '',
-      source: r.source || ''
+      source: r.source || '',
+      reference_url: r.reference_url || r.source || ''
     }));
 
-    renderList(allRules, -1);
-
-    // If you want the first rule auto-selected, uncomment:
-    // if (allRules.length) selectRuleById(allRules[0].__id);
-
-    els.search.addEventListener('input', applySearch);
+    FILTERED = [...ALL];
+    renderList(FILTERED, 0);
+    if (FILTERED.length) await selectRule(0);
+    els.status.textContent = '';
   } catch (e) {
-    els.ruleTitle.textContent = 'Failed to load rules.json';
-    els.ruleText.textContent = e.message;
+    // Friendly panel
+    document.querySelector('.meta').innerHTML =
+      '<div><strong>Jurisdiction:</strong> —</div><div><strong>Reference:</strong> —</div><div><strong>Source:</strong> —</div>';
+    els.text.textContent = `Failed to load rules.json\n${e.message}`;
+    els.status.textContent = '';
   }
+
+  // bind events after first render
+  els.search.addEventListener('input', applySearch);
+  els.printBtn.addEventListener('click', () => window.print());
+  els.exportBtn.addEventListener('click', exportToTxt);
 }
 
 document.addEventListener('DOMContentLoaded', init);
