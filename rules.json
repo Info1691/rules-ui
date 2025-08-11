@@ -13,4 +13,12 @@
     "source": "data/rules/uk/sra-code.txt",
     "reference_url": "data/rules/uk/sra-code.txt"
   }
+  {
+  "id": "icaew-code-ethics",
+  "title": "ICAEW Code of Ethics",
+  "jurisdiction": "uk",
+  "reference": "icaew-ethics",
+  "source": "icaew.com",
+  "reference_url": "data/rules/uk/icaew-code-ethics/01-introduction.txt"
+}
 ]
