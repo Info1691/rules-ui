@@ -4,7 +4,7 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Rules Repository</title>
-  <link rel="stylesheet" href="style.css?v=1"/>
+  <link rel="stylesheet" href="style.css?v=9"/>
 </head>
 <body>
   <header class="app-header">
@@ -12,28 +12,36 @@
     <h1 class="title">Rules Repository</h1>
   </header>
 
-  <div class="layout">
-    <aside class="sidebar">
-      <input id="searchBox" class="search" type="text" placeholder="Search rules by title, jurisdiction..." />
-      <ul id="rulesList" class="list" aria-live="polite"></ul>
+  <main class="wrap">
+    <section class="toolbar">
+      <input id="searchBox" type="search" placeholder="Search rules by title, jurisdiction..." />
+    </section>
+
+    <section class="meta">
+      <div><strong>Jurisdiction:</strong> <span id="jurisdiction">—</span></div>
+      <div><strong>Reference:</strong> <span id="reference">—</span></div>
+      <div><strong>Source:</strong> <span id="source">—</span></div>
+    </section>
+
+    <pre id="ruleText" class="text" aria-live="polite">Loading…</pre>
+
+    <div class="actions">
+      <button id="printBtn" class="btn" type="button">Print</button>
+      <button id="exportBtn" class="btn" type="button">Export to TXT</button>
+    </div>
+
+    <p id="status" class="status" aria-live="polite"></p>
+
+    <aside class="list-pane">
+      <h2 class="sr-only">Select a rule</h2>
+      <ul id="ruleList" class="rule-list" aria-label="Available rules"></ul>
     </aside>
-
-    <main class="content">
-      <h2 id="ruleTitle">Select a rule</h2>
-      <div class="meta">
-        <div><strong>Jurisdiction:</strong> <span id="jurisdiction">—</span></div>
-        <div><strong>Reference:</strong> <span id="reference">—</span></div>
-        <div><strong>Source:</strong> <a id="sourceLink" href="#" target="_blank" rel="noopener">—</a></div>
-      </div>
-
-      <pre id="ruleText" class="rule-text" aria-live="polite">Rule text will appear here.</pre>
-    </main>
-  </div>
+  </main>
 
   <footer class="footer">
-    <small>Static viewer. Reads from <code>rules.json</code> and referenced text files. No file writes.</small>
+    <small>Reads from <code>data/rules.json</code> and text files under <code>data/rules/</code>. No file writes.</small>
   </footer>
 
-  <script src="main.js?v=1"></script>
+  <script src="main.js?v=9"></script>
 </body>
 </html>
