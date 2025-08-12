@@ -4,44 +4,44 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Rules Repository</title>
-  <link rel="stylesheet" href="style.css?v=9"/>
+  <link rel="stylesheet" href="style.css?v=12"/>
 </head>
 <body>
-  <header class="app-header">
+  <header class="app-header" role="banner">
     <img src="logo.png" alt="Logo" class="logo"/>
     <h1 class="title">Rules Repository</h1>
   </header>
 
-  <main class="wrap">
-    <section class="toolbar">
-      <input id="searchBox" type="search" placeholder="Search rules by title, jurisdiction..." />
-    </section>
-
-    <section class="meta">
-      <div><strong>Jurisdiction:</strong> <span id="jurisdiction">—</span></div>
-      <div><strong>Reference:</strong> <span id="reference">—</span></div>
-      <div><strong>Source:</strong> <span id="source">—</span></div>
-    </section>
-
-    <pre id="ruleText" class="text" aria-live="polite">Loading…</pre>
-
-    <div class="actions">
-      <button id="printBtn" class="btn" type="button">Print</button>
-      <button id="exportBtn" class="btn" type="button">Export to TXT</button>
-    </div>
-
-    <p id="status" class="status" aria-live="polite"></p>
-
-    <aside class="list-pane">
-      <h2 class="sr-only">Select a rule</h2>
-      <ul id="ruleList" class="rule-list" aria-label="Available rules"></ul>
+  <main id="app" role="main" aria-label="Rules viewer">
+    <!-- Left: fixed sidebar with search + selector -->
+    <aside id="sidebar" aria-label="Rule selector">
+      <input id="searchBox" type="search" placeholder="Search rules by title, jurisdiction…" aria-label="Search rules"/>
+      <ul id="ruleList" class="rule-list" role="listbox" aria-label="Available rules"></ul>
     </aside>
+
+    <!-- Right: viewer -->
+    <section id="viewer" aria-live="polite">
+      <div id="meta" class="meta">
+        <div><strong>Jurisdiction:</strong> <span id="jurisdiction">—</span></div>
+        <div><strong>Reference:</strong> <span id="reference">—</span></div>
+        <div><strong>Source:</strong> <span id="source">—</span></div>
+      </div>
+
+      <pre id="ruleText" class="text">Loading…</pre>
+
+      <div class="actions">
+        <button id="printBtn" class="btn" type="button">Print</button>
+        <button id="exportBtn" class="btn" type="button">Export to TXT</button>
+      </div>
+
+      <p id="status" class="status" aria-live="polite"></p>
+    </section>
   </main>
 
   <footer class="footer">
-    <small>Reads from <code>data/rules.json</code> and text files under <code>data/rules/</code>. No file writes.</small>
+    <small>Reads from <code>data/rules/rules.json</code> (with fallbacks) and text files under <code>data/rules/</code>. No file writes.</small>
   </footer>
 
-  <script src="main.js?v=11"></script>
+  <script src="main.js?v=12"></script>
 </body>
 </html>
