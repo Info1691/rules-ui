@@ -1,6 +1,10 @@
-// Rules Repository — FULL main.js (expects data/rules/rules.json)
+// Rules Repository — resilient loader with dual-path JSON resolution.
 
-const PATHS = { JSON: 'data/rules/rules.json' };
+const PATH_CANDIDATES = [
+  'data/rules/rules.json', // preferred structure
+  'data/rules.json',       // legacy structure
+  'rules.json'             // root fallback
+];
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -15,38 +19,50 @@ const els = {
   status: $('status')
 };
 
-let ALL = [];         // all rules from JSON
-let FILTERED = [];    // search-filtered list
+let ALL = [];
+let FILTERED = [];
 let ACTIVE_INDEX = -1;
 
-// ---------- helpers ----------
-async function fetchJSON(path) {
+// ---------- fetch helpers ----------
+async function fetchTextRaw(path) {
   const res = await fetch(path, { cache: 'no-store' });
-  const raw = await res.text();
-  if (!res.ok) throw new Error(`${path} → ${res.status} ${res.statusText}`);
-  // Guard 404 HTML served by Pages
-  if (/<!doctype html/i.test(raw) && /404|not found/i.test(raw)) {
-    throw new Error(`${path} → 404 (file not found)`);
+  const txt = await res.text();
+  return { ok: res.ok, status: res.status, statusText: res.statusText, txt, path };
+}
+
+async function fetchJSONWithFallback(paths) {
+  const errors = [];
+  for (const p of paths) {
+    try {
+      const { ok, status, statusText, txt, path } = await fetchTextRaw(p);
+      if (!ok) { errors.push(`${path} → ${status} ${statusText}`); continue; }
+      if (/<!doctype html/i.test(txt) && /404|not found/i.test(txt)) {
+        errors.push(`${path} → 404 HTML`); continue;
+      }
+      try {
+        const json = JSON.parse(txt);
+        return { json, usedPath: p };
+      } catch (e) {
+        errors.push(`${p} → JSON parse error: ${e.message}`);
+      }
+    } catch (e) {
+      errors.push(`${p} → ${e.message}`);
+    }
   }
-  try { return JSON.parse(raw); }
-  catch (e) { throw new Error(`JSON parse error in ${path}: ${e.message}`); }
+  throw new Error(errors.join('\n'));
 }
 
 async function fetchTextStrict(path) {
-  const res = await fetch(path, { cache: 'no-store' });
-  const body = await res.text();
-  if (!res.ok) throw new Error(`${path} → ${res.status} ${res.statusText}`);
-  if (/<!doctype html/i.test(body) && /404|not found/i.test(body)) {
-    throw new Error(`${path} → 404 (text file not found)`);
+  const { ok, status, statusText, txt } = await fetchTextRaw(path);
+  if (!ok) throw new Error(`${path} → ${status} ${statusText}`);
+  if (/<!doctype html/i.test(txt) && /404|not found/i.test(txt)) {
+    throw new Error(`${path} → 404 (file not found)`);
   }
-  return body;
+  return txt;
 }
 
 function nameSafe(s) {
-  return (s || 'rule')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+  return (s || 'rule').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
 // ---------- rendering ----------
@@ -76,7 +92,6 @@ async function selectRule(i) {
   const rule = FILTERED[i];
   if (!rule) return;
 
-  // highlight
   [...document.querySelectorAll('.rule-btn')].forEach((b, idx) => {
     b.classList.toggle('active', idx === i);
   });
@@ -86,10 +101,7 @@ async function selectRule(i) {
   els.status.textContent = '';
 
   const url = rule.reference_url || rule.source;
-  if (!url) {
-    els.text.textContent = 'This rule has no reference_url.';
-    return;
-  }
+  if (!url) { els.text.textContent = 'This rule has no reference_url.'; return; }
 
   try {
     const t = await fetchTextStrict(url);
@@ -97,23 +109,18 @@ async function selectRule(i) {
     els.status.textContent = `Loaded: ${url}`;
   } catch (e) {
     els.text.textContent = `Failed to load rule text.\n${e.message}`;
-    els.status.textContent = '';
   }
 }
 
 // ---------- search ----------
 function applySearch() {
   const q = (els.search.value || '').trim().toLowerCase();
-  if (!q) {
-    FILTERED = [...ALL];
-  } else {
-    FILTERED = ALL.filter(r => {
-      const hay = [
-        r.title, r.jurisdiction, r.reference, r.source
-      ].map(x => (x || '').toLowerCase()).join(' ');
+  FILTERED = !q ? [...ALL] :
+    ALL.filter(r => {
+      const hay = [r.title, r.jurisdiction, r.reference, r.source]
+        .map(x => (x || '').toLowerCase()).join(' ');
       return hay.includes(q);
     });
-  }
   renderList(FILTERED, 0);
   if (FILTERED.length) selectRule(0);
   else {
@@ -139,9 +146,10 @@ function exportToTxt() {
 // ---------- init ----------
 async function init() {
   try {
-    const data = await fetchJSON(PATHS.JSON);
-    const arr = Array.isArray(data) ? data : (Array.isArray(data?.rules) ? data.rules : null);
-    if (!arr) throw new Error('rules.json must be an array or { "rules": [...] }');
+    const { json, usedPath } = await fetchJSONWithFallback(PATH_CANDIDATES);
+    const arr = Array.isArray(json) ? json : (Array.isArray(json?.rules) ? json.rules : null);
+    if (!arr) throw new Error('rules registry must be an array or { "rules": [...] }');
+    els.status.textContent = `Loaded registry: ${usedPath}`;
 
     ALL = arr.map(r => ({
       id: r.id || '',
@@ -156,12 +164,10 @@ async function init() {
     renderList(FILTERED, 0);
     if (FILTERED.length) await selectRule(0);
   } catch (e) {
-    // Friendly failure panel
     els.text.textContent = `Failed to load rules.json\n${e.message}`;
     els.status.textContent = '';
   }
 
-  // bind events
   els.search.addEventListener('input', applySearch);
   els.printBtn.addEventListener('click', () => window.print());
   els.exportBtn.addEventListener('click', exportToTxt);
