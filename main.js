@@ -1,5 +1,4 @@
-// Full, robust loader for Rules Repository.
-// Expects JSON at data/rules.json and rule text files at reference_url paths.
+// Rules Repository — FULL main.js (expects data/rules/rules.json)
 
 const PATHS = { JSON: 'data/rules/rules.json' };
 
@@ -16,22 +15,21 @@ const els = {
   status: $('status')
 };
 
-let ALL = [];         // full array from rules.json
-let FILTERED = [];    // filtered by search
+let ALL = [];         // all rules from JSON
+let FILTERED = [];    // search-filtered list
 let ACTIVE_INDEX = -1;
 
-// ---------- Fetch helpers ----------
+// ---------- helpers ----------
 async function fetchJSON(path) {
   const res = await fetch(path, { cache: 'no-store' });
+  const raw = await res.text();
   if (!res.ok) throw new Error(`${path} → ${res.status} ${res.statusText}`);
-  const txt = await res.text();
-
-  // Guard: users sometimes get 404 HTML from Pages
-  if (/<!doctype html/i.test(txt) && /404|not found|page not found/i.test(txt)) {
-    throw new Error(`${path} → Not found (ensure the file is at data/rules.json)`);
+  // Guard 404 HTML served by Pages
+  if (/<!doctype html/i.test(raw) && /404|not found/i.test(raw)) {
+    throw new Error(`${path} → 404 (file not found)`);
   }
-  try { return JSON.parse(txt); }
-  catch (e) { throw new Error(`rules.json parse error: ${e.message}`); }
+  try { return JSON.parse(raw); }
+  catch (e) { throw new Error(`JSON parse error in ${path}: ${e.message}`); }
 }
 
 async function fetchTextStrict(path) {
@@ -39,12 +37,19 @@ async function fetchTextStrict(path) {
   const body = await res.text();
   if (!res.ok) throw new Error(`${path} → ${res.status} ${res.statusText}`);
   if (/<!doctype html/i.test(body) && /404|not found/i.test(body)) {
-    throw new Error(`${path} → 404 (file missing)`);
+    throw new Error(`${path} → 404 (text file not found)`);
   }
   return body;
 }
 
-// ---------- Rendering ----------
+function nameSafe(s) {
+  return (s || 'rule')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+// ---------- rendering ----------
 function renderList(items, activeIdx = 0) {
   els.list.innerHTML = '';
   items.forEach((r, i) => {
@@ -65,13 +70,13 @@ function updateMeta(rule) {
   els.src.textContent = rule?.source || '—';
 }
 
-// ---------- Selection ----------
+// ---------- selection ----------
 async function selectRule(i) {
   ACTIVE_INDEX = i;
   const rule = FILTERED[i];
   if (!rule) return;
 
-  // highlight active
+  // highlight
   [...document.querySelectorAll('.rule-btn')].forEach((b, idx) => {
     b.classList.toggle('active', idx === i);
   });
@@ -92,10 +97,11 @@ async function selectRule(i) {
     els.status.textContent = `Loaded: ${url}`;
   } catch (e) {
     els.text.textContent = `Failed to load rule text.\n${e.message}`;
+    els.status.textContent = '';
   }
 }
 
-// ---------- Search ----------
+// ---------- search ----------
 function applySearch() {
   const q = (els.search.value || '').trim().toLowerCase();
   if (!q) {
@@ -115,14 +121,14 @@ function applySearch() {
     els.jur.textContent = '—';
     els.ref.textContent = '—';
     els.src.textContent = '—';
+    els.status.textContent = '';
   }
 }
 
-// ---------- Actions ----------
+// ---------- actions ----------
 function exportToTxt() {
   const active = FILTERED[ACTIVE_INDEX];
   const content = els.text.textContent || '';
-  const nameSafe = (s) => (s || 'rule').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   const fn = `${nameSafe(active?.reference || active?.title)}.txt`;
   const blob = new Blob([content], { type: 'text/plain' });
   const url = URL.createObjectURL(blob);
@@ -130,16 +136,13 @@ function exportToTxt() {
   document.body.appendChild(a); a.click(); URL.revokeObjectURL(url); a.remove();
 }
 
-// ---------- Init ----------
+// ---------- init ----------
 async function init() {
   try {
     const data = await fetchJSON(PATHS.JSON);
-
-    // Expect array of objects; coerce from {rules:[...]} if needed
     const arr = Array.isArray(data) ? data : (Array.isArray(data?.rules) ? data.rules : null);
     if (!arr) throw new Error('rules.json must be an array or { "rules": [...] }');
 
-    // Light validation + normalization
     ALL = arr.map(r => ({
       id: r.id || '',
       title: r.title || '',
@@ -152,16 +155,13 @@ async function init() {
     FILTERED = [...ALL];
     renderList(FILTERED, 0);
     if (FILTERED.length) await selectRule(0);
-    els.status.textContent = '';
   } catch (e) {
-    // Friendly panel
-    document.querySelector('.meta').innerHTML =
-      '<div><strong>Jurisdiction:</strong> —</div><div><strong>Reference:</strong> —</div><div><strong>Source:</strong> —</div>';
+    // Friendly failure panel
     els.text.textContent = `Failed to load rules.json\n${e.message}`;
     els.status.textContent = '';
   }
 
-  // bind events after first render
+  // bind events
   els.search.addEventListener('input', applySearch);
   els.printBtn.addEventListener('click', () => window.print());
   els.exportBtn.addEventListener('click', exportToTxt);
