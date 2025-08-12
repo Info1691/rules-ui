@@ -1,119 +1,192 @@
-let rules = [];
-let currentRuleIndex = -1;
-let originalText = ""; // Store raw text for highlight
+// Robust loader with fallbacks + in-text search/highlight + fixed sidebar.
+// Paths tried in order; first that works wins.
+const REGISTRY_PATHS = [
+  'data/rules/rules.json',
+  'data/rules.json',
+  'rules.json'
+];
+
+const $ = (id) => document.getElementById(id);
+const els = {
+  list: $('ruleList'),
+  listSearch: $('listSearch'),
+  text: $('ruleText'),
+  jur: $('jurisdiction'),
+  ref: $('reference'),
+  src: $('source'),
+  status: $('status'),
+  textSearch: $('textSearch'),
+  prev: $('prevBtn'),
+  next: $('nextBtn'),
+  printBtn: $('printBtn'),
+  exportBtn: $('exportBtn')
+};
+
+let ALL = [];
+let FILTERED = [];
+let ACTIVE_INDEX = -1;
+let originalText = '';
 let matches = [];
-let currentMatchIndex = -1;
+let matchIndex = -1;
 
-const ruleList = document.getElementById('ruleList');
-const ruleTextEl = document.getElementById('ruleText');
-const searchBox = document.getElementById('searchBox');
-const textSearchBox = document.getElementById('textSearchBox');
+// ---------- helpers ----------
+async function fetchText(path) {
+  const res = await fetch(path, { cache: 'no-store' });
+  const txt = await res.text().catch(() => '');
+  return { ok: res.ok, status: res.status, txt, path };
+}
+async function loadRegistry(paths) {
+  const errors = [];
+  for (const p of paths) {
+    try {
+      const { ok, status, txt, path } = await fetchText(p);
+      if (!ok) { errors.push(`${path} → ${status}`); continue; }
+      if (/<!doctype html/i.test(txt) && /404|not found/i.test(txt)) {
+        errors.push(`${path} → 404 HTML`); continue;
+      }
+      try { return { registry: JSON.parse(txt), used: p }; }
+      catch (e) { errors.push(`${p} → JSON parse error: ${e.message}`); }
+    } catch (e) {
+      errors.push(`${p} → ${e.message}`);
+    }
+  }
+  throw new Error(errors.join('\n'));
+}
+const esc = (s='') => s.replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+const nameSafe = (s) => (s||'rule').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
 
-fetch('data/rules.json')
-  .then(res => res.json())
-  .then(data => {
-    rules = data;
-    renderRuleList(rules);
-  })
-  .catch(err => {
-    document.getElementById('status').textContent = 'Error loading rules.json';
-    console.error(err);
-  });
-
-function renderRuleList(data) {
-  ruleList.innerHTML = '';
-  data.forEach((rule, index) => {
+// ---------- render list ----------
+function renderList(items, active=0) {
+  els.list.innerHTML = '';
+  items.forEach((r,i) => {
     const li = document.createElement('li');
-    li.textContent = rule.title;
-    li.addEventListener('click', () => loadRule(index));
-    ruleList.appendChild(li);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'rule-btn' + (i===active ? ' active' : '');
+    btn.textContent = `${r.title || 'Untitled'} — ${r.jurisdiction || ''}`;
+    btn.addEventListener('click', () => selectRule(i));
+    li.appendChild(btn);
+    els.list.appendChild(li);
   });
 }
 
-function loadRule(index) {
-  currentRuleIndex = index;
-  const rule = rules[index];
-  document.getElementById('jurisdiction').textContent = rule.jurisdiction;
-  document.getElementById('reference').textContent = rule.reference;
-  document.getElementById('source').textContent = rule.source;
+// ---------- selection ----------
+async function selectRule(i) {
+  ACTIVE_INDEX = i;
+  const rule = FILTERED[i];
+  if (!rule) return;
 
-  fetch(rule.source)
-    .then(res => res.text())
-    .then(text => {
-      originalText = text;
-      ruleTextEl.innerHTML = escapeHTML(originalText);
-      matches = [];
-      currentMatchIndex = -1;
-    })
-    .catch(err => {
-      ruleTextEl.textContent = 'Error loading rule text';
-      console.error(err);
-    });
+  [...document.querySelectorAll('.rule-btn')].forEach((b, idx) => {
+    b.classList.toggle('active', idx === i);
+  });
+
+  els.jur.textContent = rule.jurisdiction || '—';
+  els.ref.textContent = rule.reference || '—';
+  els.src.textContent = rule.source || '—';
+  els.text.textContent = 'Loading…';
+  els.status.textContent = '';
+
+  try {
+    const { ok, status, txt, path } = await fetchText(rule.reference_url || rule.source);
+    if (!ok) throw new Error(`${path} → HTTP ${status}`);
+    if (/<!doctype html/i.test(txt) && /404|not found/i.test(txt)) {
+      throw new Error(`${path} → 404 (not found)`);
+    }
+    originalText = txt || '';
+    els.text.innerHTML = esc(originalText);
+    clearMatches();
+    els.status.textContent = `Loaded: ${rule.reference_url || rule.source}`;
+  } catch (e) {
+    els.text.textContent = `Failed to load rule text.\n${e.message}`;
+    els.status.textContent = '';
+    clearMatches();
+  }
 }
 
-function escapeHTML(text) {
-  return text.replace(/[&<>'"]/g, tag => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
-  }[tag]));
-}
-
-// Filter rule list
-searchBox.addEventListener('input', () => {
-  const query = searchBox.value.toLowerCase();
-  const filtered = rules.filter(r => r.title.toLowerCase().includes(query));
-  renderRuleList(filtered);
-});
-
-// Search inside loaded text
-textSearchBox.addEventListener('input', () => {
-  highlightMatches(textSearchBox.value);
-});
-
-document.getElementById('prevMatch').addEventListener('click', () => {
-  if (matches.length) {
-    currentMatchIndex = (currentMatchIndex - 1 + matches.length) % matches.length;
-    scrollToMatch();
+// ---------- search (list) ----------
+els.listSearch.addEventListener('input', () => {
+  const q = (els.listSearch.value || '').toLowerCase();
+  FILTERED = !q ? [...ALL] :
+    ALL.filter(r => [r.title, r.jurisdiction, r.reference, r.source]
+      .map(x => (x||'').toLowerCase()).join(' ').includes(q));
+  renderList(FILTERED, 0);
+  if (FILTERED.length) selectRule(0);
+  else {
+    els.text.textContent = 'No matches.';
+    els.jur.textContent = '—'; els.ref.textContent = '—'; els.src.textContent = '—';
+    clearMatches();
   }
 });
 
-document.getElementById('nextMatch').addEventListener('click', () => {
-  if (matches.length) {
-    currentMatchIndex = (currentMatchIndex + 1) % matches.length;
-    scrollToMatch();
-  }
-});
-
-function highlightMatches(query) {
+// ---------- search (in-text) ----------
+function clearMatches() {
+  matches = []; matchIndex = -1;
+}
+function highlight(query) {
   if (!query) {
-    ruleTextEl.innerHTML = escapeHTML(originalText);
-    matches = [];
-    currentMatchIndex = -1;
+    els.text.innerHTML = esc(originalText);
+    clearMatches();
     return;
   }
-  const regex = new RegExp(`(${query})`, 'gi');
-  const highlighted = escapeHTML(originalText).replace(regex, `<mark>$1</mark>`);
-  ruleTextEl.innerHTML = highlighted;
-  matches = Array.from(ruleTextEl.querySelectorAll('mark'));
-  currentMatchIndex = matches.length ? 0 : -1;
-  scrollToMatch();
+  const re = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`,'gi');
+  els.text.innerHTML = esc(originalText).replace(re, '<mark>$1</mark>');
+  matches = Array.from(els.text.querySelectorAll('mark'));
+  matchIndex = matches.length ? 0 : -1;
+  if (matchIndex >= 0) jumpTo(matchIndex);
 }
-
-function scrollToMatch() {
-  if (matches.length) {
-    matches[currentMatchIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
+function jumpTo(i) {
+  if (!matches.length) return;
+  matches[i].scrollIntoView({ behavior:'smooth', block:'center' });
 }
-
-document.getElementById('printBtn').addEventListener('click', () => {
-  window.print();
+els.textSearch.addEventListener('input', () => highlight(els.textSearch.value));
+els.prev.addEventListener('click', () => {
+  if (!matches.length) return;
+  matchIndex = (matchIndex - 1 + matches.length) % matches.length;
+  jumpTo(matchIndex);
+});
+els.next.addEventListener('click', () => {
+  if (!matches.length) return;
+  matchIndex = (matchIndex + 1) % matches.length;
+  jumpTo(matchIndex);
 });
 
-document.getElementById('exportBtn').addEventListener('click', () => {
-  if (currentRuleIndex >= 0) {
-    const blob = new Blob([originalText], { type: 'text/plain' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = rules[currentRuleIndex].reference + '.txt';
-    link.click();
+// ---------- actions ----------
+els.printBtn.addEventListener('click', () => window.print());
+els.exportBtn.addEventListener('click', () => {
+  const rule = FILTERED[ACTIVE_INDEX];
+  if (!rule) return;
+  const blob = new Blob([originalText], { type:'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), {
+    href: url,
+    download: `${nameSafe(rule.reference || rule.title)}.txt`
+  });
+  document.body.appendChild(a); a.click(); URL.revokeObjectURL(url); a.remove();
+});
+
+// ---------- init ----------
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const { registry, used } = await loadRegistry(REGISTRY_PATHS);
+    const arr = Array.isArray(registry) ? registry
+              : (Array.isArray(registry?.rules) ? registry.rules : null);
+    if (!arr) throw new Error('Registry must be an array or { "rules": [...] }');
+
+    ALL = arr.map(r => ({
+      id: r.id || '',
+      title: r.title || '',
+      jurisdiction: r.jurisdiction || r.jurisdiction || '',
+      reference: r.reference || '',
+      source: r.source || '',
+      reference_url: r.reference_url || r.source || ''
+    }));
+
+    FILTERED = [...ALL];
+    renderList(FILTERED, 0);
+    if (FILTERED.length) await selectRule(0);
+    els.status.textContent = `Loaded registry: ${used}`;
+  } catch (e) {
+    els.text.textContent = `Error loading rules.json\n${e.message}`;
+    els.status.textContent = '';
   }
 });
