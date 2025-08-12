@@ -1,5 +1,6 @@
 let rules = [];
 let currentRuleIndex = -1;
+let originalText = ""; // Store raw text for highlight
 let matches = [];
 let currentMatchIndex = -1;
 
@@ -12,16 +13,16 @@ fetch('data/rules.json')
   .then(res => res.json())
   .then(data => {
     rules = data;
-    renderRuleList();
+    renderRuleList(rules);
   })
   .catch(err => {
     document.getElementById('status').textContent = 'Error loading rules.json';
     console.error(err);
   });
 
-function renderRuleList() {
+function renderRuleList(data) {
   ruleList.innerHTML = '';
-  rules.forEach((rule, index) => {
+  data.forEach((rule, index) => {
     const li = document.createElement('li');
     li.textContent = rule.title;
     li.addEventListener('click', () => loadRule(index));
@@ -39,7 +40,8 @@ function loadRule(index) {
   fetch(rule.source)
     .then(res => res.text())
     .then(text => {
-      ruleTextEl.innerHTML = escapeHTML(text);
+      originalText = text;
+      ruleTextEl.innerHTML = escapeHTML(originalText);
       matches = [];
       currentMatchIndex = -1;
     })
@@ -55,31 +57,27 @@ function escapeHTML(text) {
   }[tag]));
 }
 
+// Filter rule list
 searchBox.addEventListener('input', () => {
   const query = searchBox.value.toLowerCase();
   const filtered = rules.filter(r => r.title.toLowerCase().includes(query));
-  ruleList.innerHTML = '';
-  filtered.forEach((rule, index) => {
-    const li = document.createElement('li');
-    li.textContent = rule.title;
-    li.addEventListener('click', () => loadRule(rules.indexOf(rule)));
-    ruleList.appendChild(li);
-  });
+  renderRuleList(filtered);
 });
 
+// Search inside loaded text
 textSearchBox.addEventListener('input', () => {
   highlightMatches(textSearchBox.value);
 });
 
 document.getElementById('prevMatch').addEventListener('click', () => {
-  if (matches.length > 0) {
+  if (matches.length) {
     currentMatchIndex = (currentMatchIndex - 1 + matches.length) % matches.length;
     scrollToMatch();
   }
 });
 
 document.getElementById('nextMatch').addEventListener('click', () => {
-  if (matches.length > 0) {
+  if (matches.length) {
     currentMatchIndex = (currentMatchIndex + 1) % matches.length;
     scrollToMatch();
   }
@@ -87,21 +85,21 @@ document.getElementById('nextMatch').addEventListener('click', () => {
 
 function highlightMatches(query) {
   if (!query) {
-    ruleTextEl.innerHTML = escapeHTML(rules[currentRuleIndex]?.fullText || ruleTextEl.textContent);
+    ruleTextEl.innerHTML = escapeHTML(originalText);
     matches = [];
     currentMatchIndex = -1;
     return;
   }
   const regex = new RegExp(`(${query})`, 'gi');
-  const text = rules[currentRuleIndex] ? escapeHTML(ruleTextEl.textContent) : '';
-  ruleTextEl.innerHTML = text.replace(regex, `<mark>$1</mark>`);
+  const highlighted = escapeHTML(originalText).replace(regex, `<mark>$1</mark>`);
+  ruleTextEl.innerHTML = highlighted;
   matches = Array.from(ruleTextEl.querySelectorAll('mark'));
-  currentMatchIndex = matches.length > 0 ? 0 : -1;
+  currentMatchIndex = matches.length ? 0 : -1;
   scrollToMatch();
 }
 
 function scrollToMatch() {
-  if (matches.length > 0) {
+  if (matches.length) {
     matches[currentMatchIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 }
@@ -112,7 +110,7 @@ document.getElementById('printBtn').addEventListener('click', () => {
 
 document.getElementById('exportBtn').addEventListener('click', () => {
   if (currentRuleIndex >= 0) {
-    const blob = new Blob([ruleTextEl.textContent], { type: 'text/plain' });
+    const blob = new Blob([originalText], { type: 'text/plain' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = rules[currentRuleIndex].reference + '.txt';
