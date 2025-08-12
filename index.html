@@ -4,7 +4,7 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Rules Repository</title>
-  <link rel="stylesheet" href="style.css?v=10"/>
+  <link rel="stylesheet" href="style.css?v=11"/>
 </head>
 <body>
   <header class="app-header">
@@ -13,41 +13,43 @@
   </header>
 
   <main class="wrap">
-    <section class="toolbar">
-      <label for="searchBox" class="sr-only">Search rules list</label>
-      <input id="searchBox" type="search" placeholder="Search rules list..." />
+    <!-- LEFT PANEL: Rule selector always at top -->
+    <aside class="list-pane">
+      <h2>Select a Rule</h2>
+      <ul id="ruleList" class="rule-list" aria-label="Available rules"></ul>
+    </aside>
 
-      <label for="textSearchBox" class="sr-only">Search within rule text</label>
-      <input id="textSearchBox" type="search" placeholder="Search within rule text..." />
+    <!-- TOOLBAR -->
+    <section class="toolbar">
+      <input id="searchBox" type="search" placeholder="Filter rule list..." />
+      <input id="textSearchBox" type="search" placeholder="Search within text..." />
       <button id="prevMatch" type="button">Prev</button>
       <button id="nextMatch" type="button">Next</button>
     </section>
 
+    <!-- META INFO -->
     <section class="meta">
       <div><strong>Jurisdiction:</strong> <span id="jurisdiction">—</span></div>
       <div><strong>Reference:</strong> <span id="reference">—</span></div>
       <div><strong>Source:</strong> <span id="source">—</span></div>
     </section>
 
+    <!-- TEXT -->
     <pre id="ruleText" class="text" aria-live="polite">Loading…</pre>
 
+    <!-- ACTION BUTTONS -->
     <div class="actions">
       <button id="printBtn" class="btn" type="button">Print</button>
       <button id="exportBtn" class="btn" type="button">Export to TXT</button>
     </div>
 
     <p id="status" class="status" aria-live="polite"></p>
-
-    <aside class="list-pane">
-      <h2 class="sr-only">Select a rule</h2>
-      <ul id="ruleList" class="rule-list" aria-label="Available rules"></ul>
-    </aside>
   </main>
 
   <footer class="footer">
     <small>Reads from <code>data/rules.json</code> and text files under <code>data/rules/</code>.</small>
   </footer>
 
-  <script src="main.js?v=10"></script>
+  <script src="main.js?v=11"></script>
 </body>
 </html>
