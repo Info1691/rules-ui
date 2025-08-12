@@ -1,10 +1,5 @@
-// Robust loader with fallbacks + in-text search/highlight + fixed sidebar.
-// Paths tried in order; first that works wins.
-const REGISTRY_PATHS = [
-  'data/rules/rules.json',
-  'data/rules.json',
-  'rules.json'
-];
+// Robust base-URL resolution so the app works from ANY path/host/iframe.
+// Also: list filter, in-text highlight+Prev/Next, and export.
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -22,6 +17,26 @@ const els = {
   exportBtn: $('exportBtn')
 };
 
+// Determine base URL from this script tag (works regardless of how page is opened)
+function getBaseUrl() {
+  const script = document.currentScript || Array.from(document.scripts).find(s => /main\.js/.test(s.src));
+  const url = new URL(script.src, location.href);
+  // strip "main.js?..." -> keep trailing slash
+  url.pathname = url.pathname.replace(/[^/]*main\.js.*$/, '');
+  return url.toString();
+}
+const BASE = getBaseUrl();
+
+// Build absolute URLs relative to the app root
+const abs = (rel) => new URL(rel, BASE).toString();
+
+// Preferred registry path + fallbacks
+const REGISTRY_PATHS = [
+  abs('data/rules/rules.json'),
+  abs('data/rules.json'),
+  abs('rules.json')
+];
+
 let ALL = [];
 let FILTERED = [];
 let ACTIVE_INDEX = -1;
@@ -30,25 +45,21 @@ let matches = [];
 let matchIndex = -1;
 
 // ---------- helpers ----------
-async function fetchText(path) {
-  const res = await fetch(path, { cache: 'no-store' });
+async function fetchText(url) {
+  const res = await fetch(url, { cache: 'no-store' });
   const txt = await res.text().catch(() => '');
-  return { ok: res.ok, status: res.status, txt, path };
+  return { ok: res.ok, status: res.status, txt, url };
 }
 async function loadRegistry(paths) {
   const errors = [];
   for (const p of paths) {
     try {
-      const { ok, status, txt, path } = await fetchText(p);
-      if (!ok) { errors.push(`${path} → ${status}`); continue; }
-      if (/<!doctype html/i.test(txt) && /404|not found/i.test(txt)) {
-        errors.push(`${path} → 404 HTML`); continue;
-      }
-      try { return { registry: JSON.parse(txt), used: p }; }
-      catch (e) { errors.push(`${p} → JSON parse error: ${e.message}`); }
-    } catch (e) {
-      errors.push(`${p} → ${e.message}`);
-    }
+      const { ok, status, txt, url } = await fetchText(p);
+      if (!ok) { errors.push(`${url} → ${status}`); continue; }
+      if (/<!doctype html/i.test(txt) && /404|not found/i.test(txt)) { errors.push(`${url} → 404 HTML`); continue; }
+      try { return { registry: JSON.parse(txt), used: url }; }
+      catch (e) { errors.push(`${url} → JSON parse error: ${e.message}`); }
+    } catch (e) { errors.push(`${p} → ${e.message}`); }
   }
   throw new Error(errors.join('\n'));
 }
@@ -86,16 +97,15 @@ async function selectRule(i) {
   els.text.textContent = 'Loading…';
   els.status.textContent = '';
 
+  const srcUrl = abs(rule.reference_url || rule.source);
   try {
-    const { ok, status, txt, path } = await fetchText(rule.reference_url || rule.source);
-    if (!ok) throw new Error(`${path} → HTTP ${status}`);
-    if (/<!doctype html/i.test(txt) && /404|not found/i.test(txt)) {
-      throw new Error(`${path} → 404 (not found)`);
-    }
+    const { ok, status, txt, url } = await fetchText(srcUrl);
+    if (!ok) throw new Error(`${url} → HTTP ${status}`);
+    if (/<!doctype html/i.test(txt) && /404|not found/i.test(txt)) throw new Error(`${url} → 404 (not found)`);
     originalText = txt || '';
     els.text.innerHTML = esc(originalText);
     clearMatches();
-    els.status.textContent = `Loaded: ${rule.reference_url || rule.source}`;
+    els.status.textContent = `Loaded: ${url}`;
   } catch (e) {
     els.text.textContent = `Failed to load rule text.\n${e.message}`;
     els.status.textContent = '';
@@ -119,36 +129,19 @@ els.listSearch.addEventListener('input', () => {
 });
 
 // ---------- search (in-text) ----------
-function clearMatches() {
-  matches = []; matchIndex = -1;
-}
+function clearMatches(){ matches = []; matchIndex = -1; }
 function highlight(query) {
-  if (!query) {
-    els.text.innerHTML = esc(originalText);
-    clearMatches();
-    return;
-  }
-  const re = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`,'gi');
-  els.text.innerHTML = esc(originalText).replace(re, '<mark>$1</mark>');
+  if (!query) { els.text.innerHTML = esc(originalText); clearMatches(); return; }
+  const re = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`,'gi');
+  els.text.innerHTML = esc(originalText).replace(re,'<mark>$1</mark>');
   matches = Array.from(els.text.querySelectorAll('mark'));
   matchIndex = matches.length ? 0 : -1;
   if (matchIndex >= 0) jumpTo(matchIndex);
 }
-function jumpTo(i) {
-  if (!matches.length) return;
-  matches[i].scrollIntoView({ behavior:'smooth', block:'center' });
-}
+function jumpTo(i){ if (matches.length) matches[i].scrollIntoView({behavior:'smooth', block:'center'}); }
 els.textSearch.addEventListener('input', () => highlight(els.textSearch.value));
-els.prev.addEventListener('click', () => {
-  if (!matches.length) return;
-  matchIndex = (matchIndex - 1 + matches.length) % matches.length;
-  jumpTo(matchIndex);
-});
-els.next.addEventListener('click', () => {
-  if (!matches.length) return;
-  matchIndex = (matchIndex + 1) % matches.length;
-  jumpTo(matchIndex);
-});
+els.prev.addEventListener('click', () => { if (matches.length){ matchIndex=(matchIndex-1+matches.length)%matches.length; jumpTo(matchIndex);} });
+els.next.addEventListener('click', () => { if (matches.length){ matchIndex=(matchIndex+1)%matches.length; jumpTo(matchIndex);} });
 
 // ---------- actions ----------
 els.printBtn.addEventListener('click', () => window.print());
@@ -157,10 +150,7 @@ els.exportBtn.addEventListener('click', () => {
   if (!rule) return;
   const blob = new Blob([originalText], { type:'text/plain' });
   const url = URL.createObjectURL(blob);
-  const a = Object.assign(document.createElement('a'), {
-    href: url,
-    download: `${nameSafe(rule.reference || rule.title)}.txt`
-  });
+  const a = Object.assign(document.createElement('a'), { href:url, download:`${nameSafe(rule.reference || rule.title)}.txt` });
   document.body.appendChild(a); a.click(); URL.revokeObjectURL(url); a.remove();
 });
 
