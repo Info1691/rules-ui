@@ -1,7 +1,7 @@
 // Full, robust loader for Rules Repository.
 // Expects JSON at data/rules.json and rule text files at reference_url paths.
 
-const PATHS = { JSON: 'data/rules.json' };
+const PATHS = { JSON: 'data/rules/rules.json' };
 
 const $ = (id) => document.getElementById(id);
 const els = {
