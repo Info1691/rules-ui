@@ -4,10 +4,18 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Rules Repository</title>
+
+  <!-- Your existing styles -->
   <link rel="stylesheet" href="style.css?v=14"/>
+
+  <!-- Drawer styles -->
+  <link rel="stylesheet" href="drawer.css"/>
 </head>
 <body>
   <header class="app-header" role="banner">
+    <!-- Single, working Repos trigger -->
+    <button id="repoBtn" class="btn btn-light" type="button" aria-controls="repo-drawer" aria-expanded="false">Repos</button>
+
     <img src="logo.png" alt="Logo" class="logo"/>
     <h1 class="title">Rules Repository</h1>
   </header>
@@ -47,6 +55,29 @@
     <small>Reads from <code>data/rules/rules.json</code> (fallbacks supported) and text files under <code>data/rules/</code>. No file writes.</small>
   </footer>
 
-  <script src="main.js?v=14"></script>
+  <!-- Your existing app logic -->
+  <script src="main.js?v=14" defer></script>
+
+  <!-- Optional: override the link list (or omit to use defaults in drawer.js) -->
+  <script>
+    window.REPO_LINKS = [
+      { href: 'https://info1691.github.io/rules-ui/',           label: 'Rules Repository' },
+      { href: 'https://info1691.github.io/laws-ui/',            label: 'Laws Repository' },
+      { href: 'https://info1691.github.io/commentary-ui/',      label: 'Commentary Viewer' },
+      { href: 'https://info1691.github.io/Law-Texts-ui/',       label: 'Trust Law Textbooks' },
+      { href: 'https://info1691.github.io/compliance-ui/',      label: 'Compliance – Citations' },
+      { href: 'https://info1691.github.io/compliance-ui/bulk/', label: 'Citations – Bulk Upload' },
+      { href: 'https://info1691.github.io/breaches-ui/',        label: 'Breaches Manager' }
+    ];
+  </script>
+
+  <!-- Drawer logic (shared across repos) -->
+  <script src="drawer.js" defer></script>
+  <script defer>
+    window.addEventListener('DOMContentLoaded', () => {
+      // Initialize drawer with the single header trigger
+      RepoDrawer.init('#repoBtn');
+    });
+  </script>
 </body>
 </html>
