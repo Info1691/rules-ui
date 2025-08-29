@@ -8,25 +8,25 @@
   <style>
     :root{
       --bg:#f3f4f6; --ink:#111827; --mut:#6b7280; --ring:#e5e7eb;
-      --bar:#0b2e47; --card:#ffffff; --chip:#111827; --pill:#ffffff;
+      --bar:#0b2e47; --card:#ffffff; --chip:#111827; --pill:#ffffff; --chipbg:#fff;
     }
     @media (prefers-color-scheme: dark){
-      :root{ --bg:#0f172a; --ink:#e5e7eb; --mut:#94a3b8; --ring:#1f2937; --card:#0b1220; --pill:#0b1220; }
+      :root{
+        --bg:#0f172a; --ink:#e5e7eb; --mut:#94a3b8; --ring:#1f2937;
+        --card:#0b1220; --pill:#0b1220; --chip:#ffffff; --chipbg:#0b1220;
+      }
     }
     *{box-sizing:border-box}
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg)}
     a{color:inherit;text-decoration:none}
     a:hover{text-decoration:underline}
-
     /* Top bar */
     .bar{background:var(--bar);color:#fff;padding:12px 18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
     .bar__crumb{opacity:.9}
     .bar__title{font-weight:700}
-
     /* Layout */
     .wrap{max-width:1200px;margin:20px auto;padding:0 16px;display:grid;grid-template-columns:280px 1fr;gap:18px}
     @media (max-width:860px){ .wrap{grid-template-columns:1fr} }
-
     /* Left panel */
     .panel{background:#fff;border:1px solid var(--ring);border-radius:12px;padding:14px}
     .panel h3{margin:0 0 8px 0;font-size:.95rem;letter-spacing:.03em;color:#334155}
@@ -34,24 +34,25 @@
     .panel .lnk:hover{background:#f3f4f6}
     .muted{color:var(--mut)}
     .small{font-size:.85rem}
-
     /* Search/filter */
     .searchbox{display:flex;gap:10px;align-items:center;margin-bottom:8px}
     .searchbox input[type="search"]{flex:1;min-width:200px;padding:10px 12px;border:1px solid var(--ring);border-radius:10px;font-size:16px;background:#fff}
     .count{font-size:.85rem;color:var(--mut)}
-
     /* Cards */
     .list{display:flex;flex-direction:column;gap:14px}
     .card{background:var(--card);border:1px solid var(--ring);border-radius:16px;padding:16px}
     .title{font-weight:800;margin:0 0 6px 0}
     .meta{font-size:.9rem;color:var(--mut);margin-bottom:8px}
     .chips{display:flex;gap:8px;flex-wrap:wrap}
-    .chip{display:inline-block;border:1px solid #d1d5db;border-radius:999px;padding:5px 10px;font-size:.8rem;background:var(--pill);color:var(--chip)}
+    .chip{
+      display:inline-block;border:1px solid #d1d5db;border-radius:999px;padding:6px 12px;
+      font-size:.85rem;background:var(--chipbg);color:var(--chip);font-weight:600;
+    }
+    .chip[aria-disabled="true"]{opacity:.6;cursor:not-allowed}
     .chip:hover{background:#eef2f7}
   </style>
 </head>
 <body>
-  <!-- Top bar -->
   <div class="bar">
     <a class="bar__crumb" href="./">Rules & Codes</a>
     <span class="bar__title">Index</span>
@@ -69,8 +70,7 @@
       <a class="lnk" href="https://github.com/Info1691/rules-ui" target="_blank" rel="noopener">This UI: <strong>rules-ui</strong></a>
 
       <div class="small muted" style="margin-top:10px">
-        Source:
-        <span id="sourceLabel">./rules.json</span>
+        Source: <span id="sourceLabel">./rules.json</span>
       </div>
       <div id="loaded" class="small muted" style="margin-top:6px">Loaded 0 item(s).</div>
     </aside>
@@ -87,10 +87,9 @@
 
   <script>
     // ---------- CONFIG ----------
-    // Primary: local JSON in this repo
-    const RULES_URL_PRIMARY  = './rules.json';
-    // Fallback: public artifact in law-index (adjust if your path differs)
+    const RULES_URL_PRIMARY = './rules.json';
     const RULES_URL_FALLBACK = 'https://info1691.github.io/law-index/rules/rules.json';
+    const PUBLIC_BASE = 'https://info1691.github.io/law-index/';
 
     // ---------- DOM ----------
     const $q = document.getElementById('q');
@@ -103,49 +102,53 @@
     const norm = v => (v ?? '').toString().toLowerCase();
     const tokens = s => norm(s).split(/\s+/).filter(Boolean);
 
+    function firstNonEmpty(obj, keys){
+      for (const k of keys){ const v = obj?.[k]; if (v != null && String(v).trim() !== '') return String(v).trim(); }
+      return '';
+    }
+
     function resolveTxtHref(it){
-      // Accepts it.url, it.txt, or it.path
-      const raw = (it.url || it.txt || it.path || '').toString().trim();
-      if (!raw) return '#';
+      // tolerate many field names
+      let raw = firstNonEmpty(it, ['url_txt','url','txt','path','href','file']);
+      if (!raw) {
+        const maybe = firstNonEmpty(it, ['relative','rel','slug']);
+        if (maybe) raw = maybe;
+      }
+      if (!raw) return '';
 
-      // Already absolute?
-      if (/^https?:\/\//i.test(raw)) return raw;
+      if (/^https?:\/\//i.test(raw)) return raw;                    // absolute
+      if (/^(\.\/|data\/|texts\/|rules\/)/i.test(raw))              // local repo paths
+        return raw.replace(/^\.?\/*/, './');
+      if (/^(jersey|uk)\//i.test(raw))                              // jurisdiction path
+        return PUBLIC_BASE + 'rules/' + raw.replace(/^\.?\/*/, '');
 
-      // If rules are stored locally in this repo (e.g., data/ or texts/), keep relative:
-      if (/^data\/|^texts\//i.test(raw)) return raw.replace(/^\.?\/*/, './');
-
-      // Otherwise assume they live in the public law-index tree:
-      return 'https://info1691.github.io/law-index/' + raw.replace(/^\.?\/*/, '');
+      return PUBLIC_BASE + raw.replace(/^\.?\/*/, '');              // default under public base
     }
 
     function itemCard(it){
-      const art = document.createElement('article');
-      art.className = 'card';
+      const art = document.createElement('article'); art.className='card';
 
-      const h = document.createElement('h2');
-      h.className = 'title';
-      h.textContent = it.title || it.name || it.reference || 'Untitled';
+      const h = document.createElement('h2'); h.className='title';
+      h.textContent = firstNonEmpty(it, ['title','name','reference','id']) || 'Untitled';
 
-      const m = document.createElement('div');
-      m.className = 'meta';
+      const m = document.createElement('div'); m.className='meta';
       const bits = [];
-      if (it.jurisdiction) bits.push(String(it.jurisdiction).toUpperCase());
-      if (it.body) bits.push(it.body);
-      if (it.year) bits.push(it.year);
-      if (it.reference) bits.push(it.reference);
+      const j = firstNonEmpty(it, ['jurisdiction','jur']); if (j) bits.push(j.toUpperCase());
+      const b = firstNonEmpty(it, ['body']); if (b) bits.push(b);
+      const y = firstNonEmpty(it, ['year']); if (y) bits.push(y);
+      const r = firstNonEmpty(it, ['reference','ref']); if (r) bits.push(r);
       m.textContent = bits.join(' · ');
 
-      const chips = document.createElement('div');
-      chips.className = 'chips';
-
+      const chips = document.createElement('div'); chips.className='chips';
+      const href = resolveTxtHref(it);
       const a = document.createElement('a');
       a.className = 'chip';
-      a.textContent = 'TXT';
-      a.href = resolveTxtHref(it);
-      a.target = '_blank'; a.rel = 'noopener';
+      a.textContent = href ? 'TXT' : 'NO LINK';
+      if (href) { a.href = href; a.target='_blank'; a.rel='noopener'; }
+      else { a.setAttribute('aria-disabled','true'); a.href='#'; }
       chips.appendChild(a);
 
-      art.append(h, m, chips);
+      art.append(h,m,chips);
       return art;
     }
 
@@ -160,7 +163,7 @@
       const q = tokens($q.value);
       if (!q.length){ render(window.__RULES || []); return; }
       const out = (window.__RULES || []).filter(it => {
-        const hay = [it.title, it.jurisdiction, it.body, it.year, it.reference]
+        const hay = [it.title, it.name, it.reference, it.jurisdiction, it.body, it.year, it.slug]
           .map(norm).join(' ');
         return q.every(t => hay.includes(t));
       });
@@ -184,8 +187,7 @@
           window.__RULES = await getJSON(RULES_URL_FALLBACK);
         }catch(e2){
           $list.innerHTML = '<div class="card">Failed to load rules.json from both sources.</div>';
-          console.error('Primary error:', e1);
-          console.error('Fallback error:', e2);
+          console.error('Primary error:', e1); console.error('Fallback error:', e2);
           return;
         }
       }
